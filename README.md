@@ -1,4 +1,11 @@
 
+## Evan Krell's Fork:
+
+I am using this fork to explore PartitionShap.
+
+1. Determine how exactly it works
+2. Formulate a strategy for raster data with arbitrary number of bands
+
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/slundberg/shap/master/docs/artwork/shap_header.png" width="800" />
