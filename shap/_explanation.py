@@ -50,7 +50,7 @@ class MetaExplanation(type):
     @property
     def mean(cls):
         return op_chain_root.mean
-    
+
     @property
     def sample(cls):
         return op_chain_root.sample
@@ -79,6 +79,8 @@ class Explanation(object, metaclass=MetaExplanation):
         hierarchical_values=None,
         clustering=None
     ):
+        #print("\n      >> Enter _explanation.py: __init__")
+
         self.op_history = []
 
         # cloning. TODO: better cloning :)
@@ -90,7 +92,13 @@ class Explanation(object, metaclass=MetaExplanation):
 
         output_dims = compute_output_dims(values, base_values, data)
 
+        # [KRELL]
+        #print("      values shape = {}".format(values.shape))
+        #print("      output_dims  = {}".format(output_dims))
+
         if len(_compute_shape(feature_names)) == 1: # TODO: should always be an alias once slicer supports per-row aliases
+            # [KRELL] Not this
+
             values_shape = _compute_shape(values)
             if len(values_shape) >= 1 and len(feature_names) == values_shape[0]:
                 feature_names = Alias(list(feature_names), 0)
@@ -98,6 +106,8 @@ class Explanation(object, metaclass=MetaExplanation):
                 feature_names = Alias(list(feature_names), 1)
 
         if len(_compute_shape(output_names)) == 1: # TODO: should always be an alias once slicer supports per-row aliases
+            # [KRELL] Not this
+
             values_shape = _compute_shape(values)
             output_names = Alias(list(output_names), output_dims[0])
             # if len(values_shape) >= 1 and len(output_names) == values_shape[0]:
@@ -106,6 +116,8 @@ class Explanation(object, metaclass=MetaExplanation):
             #     output_names = Alias(list(output_names), 1)
 
         if output_names is not None and not isinstance(output_names, Alias):
+            # [KRELL] Not this
+
             l = len(_compute_shape(output_names))
             if l == 0:
                 pass
@@ -131,6 +143,10 @@ class Explanation(object, metaclass=MetaExplanation):
             hierarchical_values=hierarchical_values,
             clustering=None if clustering is None else Obj(clustering, [0])
         )
+
+        #print("      Generated {} slicer -> allows tensor-like slicing of objects")
+
+        #print("      << Exit _explanation.py: __init__\n")
 
     @property
     def shape(self):
@@ -173,7 +189,7 @@ class Explanation(object, metaclass=MetaExplanation):
     @property
     def output_names(self):
         return self._s.output_names
-    @output_names.setter 
+    @output_names.setter
     def output_names(self, new_output_names):
         self._s.output_names = new_output_names
 
@@ -370,22 +386,22 @@ class Explanation(object, metaclass=MetaExplanation):
 
     def __add__(self, other):
         return self._apply_binary_operator(other, operator.add, "__add__")
-    
+
     def __radd__(self, other):
         return self._apply_binary_operator(other, operator.add, "__add__")
-        
+
     def __sub__(self, other):
         return self._apply_binary_operator(other, operator.sub, "__sub__")
-    
+
     def __rsub__(self, other):
         return self._apply_binary_operator(other, operator.sub, "__sub__")
-    
+
     def __mul__(self, other):
         return self._apply_binary_operator(other, operator.mul, "__mul__")
-    
+
     def __rmul__(self, other):
         return self._apply_binary_operator(other, operator.mul, "__mul__")
-        
+
     def __truediv__(self, other):
         return self._apply_binary_operator(other, operator.truediv, "__truediv__")
 
@@ -435,14 +451,14 @@ class Explanation(object, metaclass=MetaExplanation):
                 new_self.clustering = self.clustering[0]
             else:
                 new_self.clustering = None
-        
+
         new_self.op_history.append({
             "name": fname,
             "kwargs": kwargs,
             "prev_shape": self.shape,
             "collapsed_instances": axis == 0
         })
-        
+
         return new_self
 
     def mean(self, axis):
@@ -484,9 +500,9 @@ class Explanation(object, metaclass=MetaExplanation):
 
     def hclust(self, metric="sqeuclidean", axis=0):
         """ Computes an optimal leaf ordering sort order using hclustering.
-        
+
         hclust(metric="sqeuclidean")
-        
+
         Parameters
         ----------
         metric : string
@@ -517,7 +533,7 @@ class Explanation(object, metaclass=MetaExplanation):
         max_samples : int
             The number of rows to sample. Note that if replace=False then less than
             fewer than max_samples will be drawn if explanation.shape[0] < max_samples.
-        
+
         replace : bool
             Sample with or without replacement.
         """
@@ -568,7 +584,7 @@ def group_features(shap_values, feature_map):
     reverse_map = {}
     for name in feature_map:
         reverse_map[feature_map[name]] = reverse_map.get(feature_map[name], []) + [name]
-    
+
     curr_names = shap_values.feature_names
     shap_values_new = copy.deepcopy(shap_values)
     found = {}
@@ -580,11 +596,11 @@ def group_features(shap_values, feature_map):
             continue
         i += 1
         found[new_name] = True
-        
+
         new_name = feature_map.get(name, name)
         cols_to_sum = reverse_map.get(new_name, [new_name])
         old_inds = [curr_names.index(v) for v in cols_to_sum]
-        
+
         if rank1:
             shap_values_new.values[i] = shap_values.values[old_inds].sum()
             shap_values_new.data[i] = shap_values.data[old_inds].sum()
@@ -617,7 +633,7 @@ def compute_output_dims(values, base_values, data):
         data_shape = _compute_shape(data)
 
     # if we are not given any data we assume it would be the same shape as the given values
-    else: 
+    else:
         data_shape = values_shape
 
     # output shape is known from the base values
@@ -688,13 +704,13 @@ class Cohorts():
         for k in self.cohorts:
             new_cohorts.cohorts[k] = self.cohorts[k].__getitem__(item)
         return new_cohorts
-    
+
     def __getattr__(self, name):
         new_cohorts = Cohorts()
         for k in self.cohorts:
             new_cohorts.cohorts[k] = getattr(self.cohorts[k], name)
         return new_cohorts
-    
+
     def __call__(self, *args, **kwargs):
         new_cohorts = Cohorts()
         for k in self.cohorts:
@@ -709,7 +725,7 @@ def _auto_cohorts(shap_values, max_cohorts):
     """ This uses a DecisionTreeRegressor to build a group of cohorts with similar SHAP values.
     """
 
-    # fit a decision tree that well spearates the SHAP values 
+    # fit a decision tree that well spearates the SHAP values
     m = sklearn.tree.DecisionTreeRegressor(max_leaf_nodes=max_cohorts)
     m.fit(shap_values.data, shap_values.values)
 
@@ -735,10 +751,10 @@ def _auto_cohorts(shap_values, max_cohorts):
                     name += str(threshold) + " & "
         path_names.append(name[:-3]) # the -3 strips off the last unneeded ' & '
     path_names = np.array(path_names)
-    
+
     # split the instances into cohorts by their path names
     cohorts = {}
     for name in np.unique(path_names):
         cohorts[name] = shap_values[path_names == name]
-    
+
     return Cohorts(**cohorts)

@@ -33,7 +33,7 @@ class Explainer(Serializable):
             computes the output of the model for those samples.
 
         masker : function, numpy.array, pandas.DataFrame, tokenizer, None, or a list of these for each model input
-            The function used to "mask" out hidden features of the form `masked_args = masker(*model_args, mask=mask)`. 
+            The function used to "mask" out hidden features of the form `masked_args = masker(*model_args, mask=mask)`.
             It takes input in the same form as the model, but for just a single sample with a binary
             mask, then returns an iterable of masked samples. These
             masked samples will then be evaluated using the model function and the outputs averaged.
@@ -69,9 +69,17 @@ class Explainer(Serializable):
             downstream plots.
         """
 
+        # [KRELL]
+        print("  >> Enter _explainer.py: __init__")
+
         self.model = model
+        # [KRELL] <function f at 0x7fbde05b18c0>
         self.output_names = output_names
+        # [KRELL] ['tench', 'goldfish', 'great_white_shark' …
         self.feature_names = feature_names
+        # [KRELL] None
+
+        # [KRELL] algorithm -> "auto"
 
         # wrap the incoming masker object as a shap.Masker object
         if safe_isinstance(masker, "pandas.core.frame.DataFrame") or \
@@ -99,12 +107,17 @@ class Explainer(Serializable):
         else:
             self.masker = masker
 
+            # [KRELL]
+            print("Set masker using the blur masker we created")
+
         # Check for transformer pipeline objects and wrap them
         if safe_isinstance(self.model, "transformers.pipelines.Pipeline"):
             return self.__init__( # pylint: disable=non-parent-init-called
                 models.TransformersPipeline(self.model), self.masker,
                 link=link, algorithm=algorithm, output_names=output_names, feature_names=feature_names, **kwargs
             )
+
+            # [KRELL] Our model is not a transformer pipeline -> skip
 
         # wrap self.masker and self.model for output text explanation algorithm
         if (safe_isinstance(self.model, "transformers.PreTrainedModel") or safe_isinstance(self.model, "transformers.TFPreTrainedModel")) and \
@@ -116,6 +129,8 @@ class Explainer(Serializable):
         elif safe_isinstance(self.model, "shap.models.TopKLM") and safe_isinstance(self.masker, "shap.maskers.Text"):
             self.masker = maskers.FixedComposite(self.masker)
 
+        # [KRELL] None of the above apply
+
         #self._brute_force_fallback = explainers.BruteForce(self.model, self.masker)
 
         # validate and save the link function
@@ -123,6 +138,10 @@ class Explainer(Serializable):
             self.link = link
         else:
             raise Exception("The passed link function needs to be callable and have a callable .inverse property!")
+
+        # [KRELL] CPUDispatcher(<function identity at 0x7fc0d20c0dd0>)
+        # Links -> we are use 'identity' link, a no-op link function
+        # Basically, our model outputs do not need any units change to work for SHAP
 
         # if we are called directly (as opposed to through super()) then we convert ourselves to the subclass
         # that implements the specific algorithm that was chosen
@@ -160,6 +179,11 @@ class Explainer(Serializable):
                     elif issubclass(type(self.masker), maskers.Image) or issubclass(type(self.masker), maskers.Text) or \
                             issubclass(type(self.masker), maskers.OutputComposite) or issubclass(type(self.masker), maskers.FixedComposite):
                         algorithm = "partition"
+
+                        # [KRELL]
+                        print("Algorithm assigned to type {}".format(algorithm))
+                        print("   because 'issubclass(type(self.masker), maskers.Image`")
+
                     else:
                         algorithm = "permutation"
 
@@ -189,6 +213,9 @@ class Explainer(Serializable):
             else:
                 raise Exception("Unknown algorithm type passed: %s!" % algorithm)
 
+        # [KRELL]
+        print("  << Exit _explainer.py: __init__")
+
 
     def __call__(self, *args, max_evals="auto", main_effects=False, error_bounds=False, batch_size="auto",
                  outputs=None, silent=False, **kwargs):
@@ -198,6 +225,9 @@ class Explainer(Serializable):
         subclass of Explainer. Descriptions of each subclasses' __call__ arguments
         are available in their respective doc-strings.
         """
+
+        # [KRELL]
+        print(">> Enter _eplainer.py: __call__")
 
         # if max_evals == "auto":
         #     self._brute_force_fallback
@@ -234,11 +264,17 @@ class Explainer(Serializable):
             elif issubclass(type(args[i]), dict) and "text" in args[i]:
                 args[i] = args[i]["text"]
 
+        # [KRELL]
+        print("Num_rows = {}".format(num_rows))
+
         if batch_size == "auto":
             if hasattr(self.masker, "default_batch_size"):
                 batch_size = self.masker.default_batch_size
             else:
                 batch_size = 10
+
+        # [KRELL]
+        print("Batch size = {}".format(batch_size))
 
         # loop over each sample, filling in the values array
         values = []
@@ -270,6 +306,12 @@ class Explainer(Serializable):
                 for i in range(len(row_args)):
                     feature_names[i].append(row_feature_names[i])
 
+        # [KRELL]
+        print("Finished evaluating rows")
+        print("Outputs")
+        print("   mask_shapes[0][0] = {}".format(mask_shapes[0][0]))
+        print("   Why {}? Is the number of outputs we asked for.".format(mask_shapes[0][0][3]))
+
         # split the values up according to each input
         arg_values = [[] for a in args]
         for i, v in enumerate(values):
@@ -278,6 +320,13 @@ class Explainer(Serializable):
                 mask_length = np.prod(mask_shapes[i][j])
                 arg_values[j].append(values[i][pos:pos+mask_length])
                 pos += mask_length
+        # [KRELL] This section a little weird.
+        # It uses the mask size to figure out how to split the jth SHAP value across the arguments
+        # Here, even though we have multiple images i.e. X[1:3],
+        # the args is like [ X[1:3] ] --> length = 1
+        # So, each shap value like values[0], values[1], ... is assigned to X[0], X[1], ...'s shap values
+        # The size of the mask for [shap i, arg j] is used to determine how to split between args.
+        # (Not sure what it would mean to have multiple args...)
 
         # collapse the arrays as possible
         expected_values = pack_values(expected_values)
@@ -291,6 +340,8 @@ class Explainer(Serializable):
         ragged_outputs = False
         if output_indices is not None:
             ragged_outputs = not all(len(x) == len(output_indices[0]) for x in output_indices)
+            # [KRELL]
+            # ragged_outputs -> False
         if self.output_names is None:
             if None not in output_names:
                 if not ragged_outputs:
@@ -304,6 +355,12 @@ class Explainer(Serializable):
             sliced_labels = [labels[index_list] for index_list in output_indices]
             if not ragged_outputs:
                 sliced_labels = np.array(sliced_labels)
+
+            # [KRELL]
+            print("Here, the output_indices are top predicted classes in order")
+            print("    The indices are used to pull out the ordered output labels")
+            print("    X[0]'s output_indices", output_indices[0])
+            print("    X[0]'s sliced_labels", sliced_labels[0])
 
         if isinstance(sliced_labels, np.ndarray) and len(sliced_labels.shape) == 2:
             if np.all(sliced_labels[0,:] == sliced_labels):
@@ -322,6 +379,11 @@ class Explainer(Serializable):
                     tmp.append(v.reshape(*mask_shapes[i][j]))
             arg_values[j] = pack_values(tmp)
 
+            # [KRELL]
+            print("Using mask shape to go from flat SHAP values to match the input data")
+            print("    Before: {}".format(v.shape))
+            print("    After: (images, height, width, bands, outputs) = {}".format(arg_values[-1].shape))
+
             # allow the masker to transform the input data to better match the masking pattern
             # (such as breaking text into token segments)
             if hasattr(self.masker, "data_transform"):
@@ -339,6 +401,10 @@ class Explainer(Serializable):
                 # output_shape=output_shape,
                 #lower_bounds=v_min, upper_bounds=v_max
             ))
+
+
+        print("<< Exit _explainer.py: __call__")
+
         return out[0] if len(out) == 1 else out
 
     def explain_row(self, *row_args, max_evals, main_effects, error_bounds, outputs, silent, **kwargs):
@@ -355,7 +421,7 @@ class Explainer(Serializable):
             are fixed inputs present, like labels when explaining the loss), and row_mask_shapes is a list
             of all the input shapes (since the row_values is always flattened),
         """
-        
+
         return {}
 
     @staticmethod

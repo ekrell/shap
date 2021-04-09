@@ -66,6 +66,9 @@ class Partition(Explainer):
         See `Partition explainer examples <https://shap.readthedocs.io/en/latest/api_examples/explainers/Partition.html>`_
         """
 
+        # [KRELL]
+        print("\n  >> Enter _partition.py: __init__")
+
         super().__init__(model, masker, algorithm="partition", output_names = output_names, feature_names=feature_names)
 
         # convert dataframes
@@ -106,9 +109,22 @@ class Partition(Explainer):
             self._clustering = self.masker.clustering
             self._mask_matrix = make_masks(self._clustering)
 
+            # [KRELL]
+            # Create _mask_matrix
+            # This sets up the relationship between paritition nodes and masks!
+
+        # [KRELL]
+        print("  << Exit _partition.py: __init__\n")
+
     def explain_row(self, *row_args, max_evals, main_effects, error_bounds, batch_size, outputs, silent, fixed_context = "auto"):
         """ Explains a single row and returns the tuple (row_values, row_expected_values, row_mask_shapes).
         """
+
+        # [KRELL]
+        print("\n  >> Enter _partition.py: __explain_row")
+
+        # [KRELL]
+        print("  Input fixed context = {}".format(fixed_context))
 
         if fixed_context == "auto":
             # if isinstance(self.masker, maskers.Text):
@@ -118,18 +134,48 @@ class Partition(Explainer):
         elif fixed_context not in [0, 1, None]:
             raise Exception("Unknown fixed_context value passed (must be 0, 1 or None): %s" %fixed_context)
 
+        # [KRELL]
+        print("  Now fixed context = {}".format(fixed_context))
+        print("     But what is fixed context?")
+
         # build a masked version of the model for the current input sample
         fm = MaskedModel(self.model, self.masker, self.link, *row_args)
 
         # make sure we have the base value and current value outputs
         M = len(fm)
+
+        # [KRELL]
+        print("  M = {}".format(M))
+
         m00 = np.zeros(M, dtype=np.bool)
+
+        # [KRELL]
+        print("  Create (all false aka fully masked) mask of size {} = {}".format(m00.shape, m00))
+
         # if not fixed background or no base value assigned then compute base value for a row
         if self._curr_base_value is None or not getattr(self.masker, "fixed_background", False):
             self._curr_base_value = fm(m00.reshape(1, -1))[0]
+
+            # [KRELL]
+            print("  Used fully-masked mask to generate '_curr_base_value'")
+            print("    (Model prediction where blur applied to all pixels)")
+            print("    Base value shape = {},  base value = [{}, {}, ...., {}]".format(
+                self._curr_base_value.shape, self._curr_base_value[0], self._curr_base_value[1], self._curr_base_value[-1]))
+            print("    (Why shape = {}? Equals the number of possible classes. Prediction is prob of each class)")
+            print("    Prediction = {} ({})".format(np.max(self._curr_base_value), self.output_names[np.argmax(self._curr_base_value)]))
+            print("    (Larger blur --> degraded prediction")
+
         f11 = fm(~m00.reshape(1, -1))[0]
 
+        # [KRELL]
+        print("   Used fully-unmasked mask to generate 'f11'")
+        print("     (Model prediction with no blurring")
+        print("     Prediction = {} ({})".format(np.max(f11), self.output_names[np.argmax(f11)]))
+        print("     (Exact same prediction as using trained model")
+
         if callable(self.masker.clustering):
+            # [KRELL] Not this
+
             self._clustering = self.masker.clustering(*row_args)
             self._mask_matrix = make_masks(self._clustering)
 
@@ -137,11 +183,34 @@ class Partition(Explainer):
             if outputs is None:
                 outputs = np.arange(len(self._curr_base_value))
             elif isinstance(outputs, OpChain):
+
+                # [KRELL]    Operation chain
+                # This is a slightly unusual-looking code.
+                # Our argument 'shap.Explanation.argsort.flip[:5]' is evaluated here.
+                # It expands to the full operation chain:
+                #     shap.Explanation.argsort.flip.__getitem__(slice(None, 5, None))
+                # Four calls to 'Explanation.__init__' are made,
+                #     NOT because of [:5] but because each operation defined in Explanation:
+                #     (1) Explanation (2) argsort (3) flip (4) __getitem__
+                # And a 4th call because of 'Explanation(f11)'
+                #     Where the model output f11 is converted to a slicer
+                #     To be compatible with the operations
+
                 outputs = outputs.apply(Explanation(f11)).values
 
+                # [KRELL]
+                print("  Selecting top {} predictions with 'argsort.flip[:5]' on output f11:")
+                print("    Explanation values = {}".format(outputs))
+                print("    ({}, {}, ..., {})".format(self.output_names[outputs[0]],
+                                                         self.output_names[outputs[1]],
+                                                         self.output_names[outputs[2]]))
             out_shape = (2*self._clustering.shape[0]+1, len(outputs))
         else:
             out_shape = (2*self._clustering.shape[0]+1,)
+
+        # [KRELL]
+        print("  Calculated shape of SHAP output values = {}".format(out_shape))
+        print("    ('2*self._clustering.shape[0]+1, len(outputs)')")
 
         if max_evals == "auto":
             max_evals = 100
@@ -155,7 +224,7 @@ class Partition(Explainer):
         #     if self.multi_output:
         #         return [self.dvalues[:,i] for i in range(self.dvalues.shape[1])], oinds
         #     else:
-        #         return self.dvalues.copy(), oinds   
+        #         return self.dvalues.copy(), oinds
         # else:
         # drop the interaction terms down onto self.values
         self.values[:] = self.dvalues
@@ -163,17 +232,34 @@ class Partition(Explainer):
         def lower_credit(i, value=0):
             if i < M:
                 self.values[i] += value
+                #print(i, self.values[i])
                 return
+
             li = int(self._clustering[i-M,0])
             ri = int(self._clustering[i-M,1])
             group_size = int(self._clustering[i-M,3])
+
             lsize = int(self._clustering[li-M,3]) if li >= M else 1
             rsize = int(self._clustering[ri-M,3]) if ri >= M else 1
             assert lsize+rsize == group_size
+
+            # [KRELL]
+            print("      i = {}, value = {} + {}".format(
+                i, self.values[i], value))
+
             self.values[i] += value
             lower_credit(li, self.values[i] * lsize / group_size)
             lower_credit(ri, self.values[i] * rsize / group_size)
+
         lower_credit(len(self.dvalues) - 1)
+
+        print("\n")
+        print("    Values:")
+        print(self.values)
+        print("\n")
+
+        # [KRELL]
+        print("  << Exit _partition.py: __explain_row\n")
 
         return {
             "values": self.values[:M].copy(),
@@ -190,6 +276,9 @@ class Partition(Explainer):
         """ Compute a nested set of recursive Owen values based on an ordering recursion.
         """
 
+        # [KRELL]
+        print("\n    >> Enter _partition.py: owen")
+
         #f = self._reshaped_model
         #r = self.masker
         #masks = np.zeros(2*len(inds)+1, dtype=np.int)
@@ -200,6 +289,10 @@ class Partition(Explainer):
         #f11 = fm(~m00.reshape(1,-1))[0]
         #f11 = self._reshaped_model(r(~m00, x)).mean(0)
         ind = len(self.dvalues)-1
+
+        # [KRELL]
+        # This 'ind' indexes a cluster row with [ind - M]
+        # Where M is the length of the number of parition (cluster) rows
 
         # make sure output_indexes is a list of indexes
         if output_indexes is not None:
@@ -212,10 +305,16 @@ class Partition(Explainer):
             #     output_indexes = np.argsort(f11)[:out_len]
             # elif output_indexes.startswith("max(abs("):
             #     output_indexes = np.argsort(np.abs(f11))[:out_len]
-        
+
+            # [KRELL]
+            # Only care about the predicted probs for the top N classes
+            # Ex: turn the 1000-length output to 5-length
             f00 = f00[output_indexes]
             f11 = f11[output_indexes]
-        
+
+        # [KRELL]
+        mOrig = m00.copy()
+
         q = queue.PriorityQueue()
         q.put((0, 0, (m00, f00, f11, ind, 1.0)))
         eval_count = 0
@@ -226,23 +325,45 @@ class Partition(Explainer):
 
             # if we passed our execution limit then leave everything else on the internal nodes
             if eval_count >= max_evals:
+
+                # [KRELL]
+                # Reached end of evals -> assign internal dvalues
+                print("    Hit `max evals` -> assigning internal dvalues")
+                count = 0
+
                 while not q.empty():
                     m00, f00, f11, ind, weight = q.get()[2]
                     self.dvalues[ind] += (f11 - f00) * weight
+
+                    # [KRELL]
+                    print("      [{}] ind = {}, weight = {}, (f11 - f00) = {}".format(
+                                    count, ind, weight, (f11 - f00)))
+                    count += 1
                 break
 
             # create a batch of work to do
             batch_args = []
             batch_masks = []
+
             while not q.empty() and len(batch_masks) < batch_size and eval_count < max_evals:
-                
+
                 # get our next set of arguments
                 m00, f00, f11, ind, weight = q.get()[2]
+
+                # [KRELL]
+                print("    \nCreating batch")
+                print("    evals = {}".format(eval_count))
+                print("    q: ind = {} (-> {})".format(ind, ind - M))
+                print("       m00 = {}".format(m00))
+                print("       f00 = {}".format(f00))
+                print("       f11 = {}".format(f11))
+                print("       weight = {}".format(weight))
+                print("       cluster row = {}".format(self._clustering[ind-M]))
 
                 # get the left and right children of this cluster
                 lind = int(self._clustering[ind-M, 0]) if ind >= M else -1
                 rind = int(self._clustering[ind-M, 1]) if ind >= M else -1
-                
+
                 # get the distance of this cluster's children
                 if ind < M:
                     distance = -1
@@ -252,10 +373,20 @@ class Partition(Explainer):
                     else:
                         distance = 1
 
+                # [KRELL]
+                print("    Is leaf? = ", end="")
+                print("True" if distance < 0 else "False")
+
                 # check if we are a leaf node (or other negative distance cluster) and so should terminate our decent
                 if distance < 0:
                     self.dvalues[ind] += (f11 - f00) * weight
+                    print("    Leaf node reached! Ending decent...")
+                    exit(0)
                     continue
+
+                    # [KRELL]
+                    # Will only run this IF we reach a leaf ([row, col, band]) node...
+                    # Will almost certainty hit `max_evals` first
 
                 # build the masks
                 m10 = m00.copy() # we separate the copy from the add so as to not get converted to a matrix
@@ -263,11 +394,46 @@ class Partition(Explainer):
                 m01 = m00.copy()
                 m01[:] += self._mask_matrix[rind, :]
 
+                # [KRELL]
+                import matplotlib.pyplot as plt
+                fig, axs = plt.subplots(2, 3)
+                imgShape = (224, 224, 3)
+                m_ = m00.reshape(imgShape).astype(np.uint8)
+                axs[0][0].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
+                axs[0][0].set_title("m00")
+                axs[0][0].axis("off")
+                axs[1][0].set_visible(False)
+                m_ = mOrig.copy()
+                m_[:] += self._mask_matrix[lind, :]
+                m_ = m_.reshape(imgShape).astype(np.uint8)
+                axs[0][1].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
+                axs[0][1].set_title("idx.left")
+                axs[0][1].axis("off")
+                m_ = mOrig.copy()
+                m_[:] += self._mask_matrix[rind, :]
+                m_ = m_.reshape(imgShape).astype(np.uint8)
+                axs[1][1].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
+                axs[1][1].set_title("idx.right")
+                axs[1][1].axis("off")
+                m_ = m10.reshape(imgShape).astype(np.uint8)
+                axs[0][2].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
+                axs[0][2].set_title("m00 + idx.left")
+                axs[0][2].axis("off")
+                m_ = m01.reshape(imgShape).astype(np.uint8)
+                axs[1][2].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
+                axs[1][2].set_title("m00 + idx.right")
+                axs[1][2].axis("off")
+                plt.tight_layout()
+                plt.show()
+
                 batch_args.append((m00, m10, m01, f00, f11, ind, lind, rind, weight))
                 batch_masks.append(m10)
                 batch_masks.append(m01)
 
             batch_masks = np.array(batch_masks)
+
+            # [KRELL]
+            print("    Created batch of {} masks".format(len(batch_masks)))
 
             # run the batch
             if len(batch_args) > 0:
@@ -283,6 +449,11 @@ class Partition(Explainer):
                 if pbar is not None:
                     pbar.update(len(batch_masks))
 
+                # [KRELL]
+                print("    Ran the batch -> evaluated model on each masked input")
+
+            # [KRELL]
+            print("    Using results of batch to add new nodes:")
             # use the results of the batch to add new nodes
             for i in range(len(batch_args)):
 
@@ -295,6 +466,12 @@ class Partition(Explainer):
                 new_weight = weight
                 if fixed_context is None:
                     new_weight /= 2
+
+                    # [KRELL]
+                    print("      i = {}".format(i))
+                    print("      weight = {},  new weight = {}".format(weight, new_weight))
+
+                # [KRELL] Not these
                 elif fixed_context == 0:
                     self.dvalues[ind] += (f11 - f10 - f01 + f00) * weight # leave the interaction effect on the internal node
                 elif fixed_context == 1:
@@ -318,8 +495,13 @@ class Partition(Explainer):
                     args = (m10, f10, f11, rind, new_weight)
                     q.put((-np.max(np.abs(f11 - f10)) * new_weight, np.random.randn(), args))
 
+                    print("\n")
+
         if pbar is not None:
             pbar.close()
+
+        # [KRELL]
+        print("    << Exit _partition.py: owen\n")
 
         return output_indexes, base_value
 
