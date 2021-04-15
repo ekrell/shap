@@ -126,14 +126,14 @@ class MaskedModel():
             delta_tmp = self._variants.copy().astype(np.int)
         for i, mask in enumerate(masks):
             # [KRELL]
-            print("\n      [ Mask i = {} ]".format(i))
-            print("      ---------------")
-            print("      Mask: {}".format(mask))
+            # print("\n      [ Mask i = {} ]".format(i))
+            # print("      ---------------")
+            # print("      Mask: {}".format(mask))
 
             # mask the inputs
             delta_mask = mask ^ last_mask
             # [KRELL]
-            print("      Delta mask (mask OR last_mask): {}".format(delta_mask))
+            # print("      Delta mask (mask OR last_mask): {}".format(delta_mask))
 
             if do_delta_masking and delta_mask.sum() == 1:
                 delta_ind = np.nonzero(delta_mask)[0][0]
@@ -150,8 +150,8 @@ class MaskedModel():
             num_mask_samples[i] = len(masked_inputs[0])
 
             # [KRELL]
-            print("      Number of masked inputs = {}".format(len(masked_inputs[0])))
-            print("      (Update) num_mask_samples = {}".format(num_mask_samples))
+            # print("      Number of masked inputs = {}".format(len(masked_inputs[0])))
+            # print("      (Update) num_mask_samples = {}".format(num_mask_samples))
 
             # see which rows have been updated, so we can only evaluate the model on the rows we need to
             if i == 0 or self._variants is None:
@@ -168,8 +168,8 @@ class MaskedModel():
                 num_varying_rows[i] = varying_rows[-1].sum()
 
             # [KRELL]
-            print("      (Update) num_varying_rows = {}".format(num_varying_rows))
-            print("      (Update) self.variants = {}".format(self._variants))
+            # print("      (Update) num_varying_rows = {}".format(num_varying_rows))
+            # print("      (Update) self.variants = {}".format(self._variants))
 
                 # for i in range(20):
                 #     varying_rows[-1].sum()
@@ -178,7 +178,7 @@ class MaskedModel():
             batch_positions[i+1] = batch_positions[i] + num_varying_rows[i]
 
             # [KRELL]
-            print("      (Update) batch_positions = {}".format(batch_positions))
+            # print("      (Update) batch_positions = {}".format(batch_positions))
 
             # subset the masked input to only the rows that vary
 
@@ -202,7 +202,7 @@ class MaskedModel():
                 all_masked_inputs[i].append(masked_inputs[i])
 
                 # [KRELL]
-                print("      Adding masked_inputs to 'all_masked_inputs'  (len = {})".format(len(all_masked_inputs[0])))
+                # print("      Adding masked_inputs to 'all_masked_inputs'  (len = {})".format(len(all_masked_inputs[0])))
                 # print("      all_masked_inputs = {}".format(all_masked_inputs))
                 # [[array([[[[109.63, 112.2 , 110.02],
                 #            [109.63, 112.2 , 110.02], ....
@@ -232,29 +232,46 @@ class MaskedModel():
         print("      << Exit _masked_model.py: __full_masking_call")
 
         # [KREll]
-        nPlots = 1 + min(len(masks), 2)     # Plot up to 2 masks
-        fig, axs = plt.subplots(2, nPlots)
-        # Original image
-        axs[0][0].imshow(self.args[0].astype(np.uint8))
-        axs[0][0].axis("off")
-        # Turn off unused subplot below
-        axs[1][0].set_visible(False)
+        maxPlots = 2
 
-        for i in range(1, nPlots):
-            # Masked image
-            axs[0][i].imshow(all_masked_inputs[0][i-1][0].astype(np.uint8))
-            axs[0][i].axis("off")
-            # Mask (binary)
-            imgShape = self.args[0].shape
-            m = masks[i-1].reshape(imgShape).astype(np.uint8)
-            axs[1][i].imshow(m[:,:,0], cmap='gray', vmin=0, vmax=1)
-            axs[1][i].axis("off")
+        #nPlots = 1 + min(len(masks), maxPlots)
+        #fig, axs = plt.subplots(2, nPlots)
+        ## Original image
+        #axs[0][0].imshow(self.args[0].astype(np.uint8))
+        #axs[0][0].axis("off")
+        ## Turn off unused subplot below
+        #axs[1][0].set_visible(False)
 
-        # Check if all mask bands are identical & report
-        if (np.all(m[:,:,0] == m[:,:,1]) and np.all(m[:,:,0] == m[:,:,2])):
-            plt.suptitle("All {} mask bands identical".format(m.shape[2]))
-        else:
-            plt.suptitle("Detected non-identical mask bands -> investigate".format(m.shape[2]))
+        #for i in range(1, nPlots):
+        #    # Masked image
+        #    axs[0][i].imshow(all_masked_inputs[0][i-1][0].astype(np.uint8))
+        #    axs[0][i].axis("off")
+        #    # Mask (binary)
+        #    imgShape = self.args[0].shape
+        #    m = masks[i-1].reshape(imgShape).astype(np.uint8)
+        #    axs[1][i].imshow(m[:,:,0], cmap='gray', vmin=0, vmax=1)
+        #    axs[1][i].axis("off")
+
+        nPlots = min(len(masks), maxPlots)
+        fig, axs = plt.subplots(nPlots, 7, squeeze=False, figsize=(12, 4))
+        imgShape = self.args[0].shape
+        for i in range(nPlots):
+            m = masks[i].reshape(imgShape).astype(np.uint8)
+            axs[i][0].imshow(all_masked_inputs[0][i][0].astype(np.uint8))
+            axs[i][0].axis("off")
+            axs[i][1].imshow(all_masked_inputs[0][i][0][:,:,0].astype(np.uint8), cmap="Reds")
+            axs[i][1].axis("off")
+            axs[i][2].imshow(m[:,:,0], cmap='gray', vmin=0, vmax=1)
+            axs[i][2].axis("off")
+            axs[i][3].imshow(all_masked_inputs[0][i][0][:,:,1].astype(np.uint8), cmap="Greens")
+            axs[i][3].axis("off")
+            axs[i][4].imshow(m[:,:,1], cmap='gray', vmin=0, vmax=1)
+            axs[i][4].axis("off")
+            axs[i][5].imshow(all_masked_inputs[0][i][0][:,:,2].astype(np.uint8), cmap="Blues")
+            axs[i][5].axis("off")
+            axs[i][6].imshow(m[:,:,2], cmap='gray', vmin=0, vmax=1)
+            axs[i][6].axis("off")
+
         plt.show()
 
         return averaged_outs
@@ -502,9 +519,10 @@ def _build_fixed_multi_output(averaged_outs, last_outs, outputs, batch_positions
             averaged_outs[i] = averaged_outs[i-1]
 
 
-def make_masks(cluster_matrix):
+def make_masks(cluster_matrix, verbose=True):
 
-    print("\n    >> Enter _masked_model.py: make_masks:")
+    if verbose:
+        print("\n    >> Enter _masked_model.py: make_masks:")
 
     # build the mask matrix recursively as an array of index lists
     global count
@@ -513,10 +531,11 @@ def make_masks(cluster_matrix):
     mask_matrix_inds = np.zeros(2 * M - 1, dtype=np.object)
 
     # [KRELL]
-    print("    Cluster shape = {}".format(cluster_matrix.shape))
-    print("    --> M = {}".format(M))
-    print("    Mask matrix length = '2 * M - 1' = {}".format(len(mask_matrix_inds)))
-    print("    Howto convert indices: 'cluster_idx = mask_matrix_idx - M'")
+    if verbose:
+        print("    Cluster shape = {}".format(cluster_matrix.shape))
+        print("    --> M = {}".format(M))
+        print("    Mask matrix length = '2 * M - 1' = {}".format(len(mask_matrix_inds)))
+        print("    Howto convert indices: 'cluster_idx = mask_matrix_idx - M'")
 
     rec_fill_masks(mask_matrix_inds, cluster_matrix, M)
 
@@ -534,7 +553,8 @@ def make_masks(cluster_matrix):
         shape=(len(mask_matrix_inds), M)
     )
 
-    print("    << Exit _masked_model.py: make_masks: \n")
+    if verbose:
+        print("    << Exit _masked_model.py: make_masks: \n")
 
     return mask_matrix
 

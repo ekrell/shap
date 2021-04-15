@@ -244,8 +244,8 @@ class Partition(Explainer):
             assert lsize+rsize == group_size
 
             # [KRELL]
-            print("      i = {}, value = {} + {}".format(
-                i, self.values[i], value))
+            #print("      i = {}, value = {} + {}".format(
+            #    i, self.values[i], value))
 
             self.values[i] += value
             lower_credit(li, self.values[i] * lsize / group_size)
@@ -336,8 +336,8 @@ class Partition(Explainer):
                     self.dvalues[ind] += (f11 - f00) * weight
 
                     # [KRELL]
-                    print("      [{}] ind = {}, weight = {}, (f11 - f00) = {}".format(
-                                    count, ind, weight, (f11 - f00)))
+                    # print("      [{}] ind = {}, weight = {}, (f11 - f00) = {}".format(
+                    #                 count, ind, weight, (f11 - f00)))
                     count += 1
                 break
 
@@ -351,14 +351,14 @@ class Partition(Explainer):
                 m00, f00, f11, ind, weight = q.get()[2]
 
                 # [KRELL]
-                print("    \nCreating batch")
-                print("    evals = {}".format(eval_count))
-                print("    q: ind = {} (-> {})".format(ind, ind - M))
-                print("       m00 = {}".format(m00))
-                print("       f00 = {}".format(f00))
-                print("       f11 = {}".format(f11))
-                print("       weight = {}".format(weight))
-                print("       cluster row = {}".format(self._clustering[ind-M]))
+                # print("    \nCreating batch")
+                # print("    evals = {}".format(eval_count))
+                # print("    q: ind = {} (-> {})".format(ind, ind - M))
+                # print("       m00 = {}".format(m00))
+                # print("       f00 = {}".format(f00))
+                # print("       f11 = {}".format(f11))
+                # print("       weight = {}".format(weight))
+                # print("       cluster row = {}".format(self._clustering[ind-M]))
 
                 # get the left and right children of this cluster
                 lind = int(self._clustering[ind-M, 0]) if ind >= M else -1
@@ -374,14 +374,13 @@ class Partition(Explainer):
                         distance = 1
 
                 # [KRELL]
-                print("    Is leaf? = ", end="")
-                print("True" if distance < 0 else "False")
+                # print("    Is leaf? = ", end="")
+                # print("True" if distance < 0 else "False")
 
                 # check if we are a leaf node (or other negative distance cluster) and so should terminate our decent
                 if distance < 0:
                     self.dvalues[ind] += (f11 - f00) * weight
                     print("    Leaf node reached! Ending decent...")
-                    exit(0)
                     continue
 
                     # [KRELL]
@@ -395,36 +394,36 @@ class Partition(Explainer):
                 m01[:] += self._mask_matrix[rind, :]
 
                 # [KRELL]
-                import matplotlib.pyplot as plt
-                fig, axs = plt.subplots(2, 3)
-                imgShape = (224, 224, 3)
-                m_ = m00.reshape(imgShape).astype(np.uint8)
-                axs[0][0].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
-                axs[0][0].set_title("m00")
-                axs[0][0].axis("off")
-                axs[1][0].set_visible(False)
-                m_ = mOrig.copy()
-                m_[:] += self._mask_matrix[lind, :]
-                m_ = m_.reshape(imgShape).astype(np.uint8)
-                axs[0][1].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
-                axs[0][1].set_title("idx.left")
-                axs[0][1].axis("off")
-                m_ = mOrig.copy()
-                m_[:] += self._mask_matrix[rind, :]
-                m_ = m_.reshape(imgShape).astype(np.uint8)
-                axs[1][1].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
-                axs[1][1].set_title("idx.right")
-                axs[1][1].axis("off")
-                m_ = m10.reshape(imgShape).astype(np.uint8)
-                axs[0][2].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
-                axs[0][2].set_title("m00 + idx.left")
-                axs[0][2].axis("off")
-                m_ = m01.reshape(imgShape).astype(np.uint8)
-                axs[1][2].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
-                axs[1][2].set_title("m00 + idx.right")
-                axs[1][2].axis("off")
-                plt.tight_layout()
-                plt.show()
+                # import matplotlib.pyplot as plt
+                # # fig, axs = plt.subplots(2, 3)
+                # # imgShape = (224, 224, 3)
+                # # m_ = m00.reshape(imgShape).astype(np.uint8)
+                # # axs[0][0].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
+                # # axs[0][0].set_title("m00")
+                # # axs[0][0].axis("off")
+                # # axs[1][0].set_visible(False)
+                # # m_ = mOrig.copy()
+                # # m_[:] += self._mask_matrix[lind, :]
+                # # m_ = m_.reshape(imgShape).astype(np.uint8)
+                # # axs[0][1].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
+                # # axs[0][1].set_title("idx.left")
+                # # axs[0][1].axis("off")
+                # # m_ = mOrig.copy()
+                # # m_[:] += self._mask_matrix[rind, :]
+                # # m_ = m_.reshape(imgShape).astype(np.uint8)
+                # # axs[1][1].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
+                # # axs[1][1].set_title("idx.right")
+                # # axs[1][1].axis("off")
+                # # m_ = m10.reshape(imgShape).astype(np.uint8)
+                # # axs[0][2].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
+                # # axs[0][2].set_title("m00 + idx.left")
+                # # axs[0][2].axis("off")
+                # # m_ = m01.reshape(imgShape).astype(np.uint8)
+                # # axs[1][2].imshow(m_[:,:,0], cmap='gray', vmin=0, vmax=1)
+                # # axs[1][2].set_title("m00 + idx.right")
+                # # axs[1][2].axis("off")
+                # # plt.tight_layout()
+                # # plt.show()
 
                 batch_args.append((m00, m10, m01, f00, f11, ind, lind, rind, weight))
                 batch_masks.append(m10)
@@ -433,7 +432,7 @@ class Partition(Explainer):
             batch_masks = np.array(batch_masks)
 
             # [KRELL]
-            print("    Created batch of {} masks".format(len(batch_masks)))
+            # print("    Created batch of {} masks".format(len(batch_masks)))
 
             # run the batch
             if len(batch_args) > 0:
@@ -450,7 +449,7 @@ class Partition(Explainer):
                     pbar.update(len(batch_masks))
 
                 # [KRELL]
-                print("    Ran the batch -> evaluated model on each masked input")
+                # print("    Ran the batch -> evaluated model on each masked input")
 
             # [KRELL]
             print("    Using results of batch to add new nodes:")
@@ -468,8 +467,8 @@ class Partition(Explainer):
                     new_weight /= 2
 
                     # [KRELL]
-                    print("      i = {}".format(i))
-                    print("      weight = {},  new weight = {}".format(weight, new_weight))
+                    # print("      i = {}".format(i))
+                    # print("      weight = {},  new weight = {}".format(weight, new_weight))
 
                 # [KRELL] Not these
                 elif fixed_context == 0:
@@ -494,8 +493,6 @@ class Partition(Explainer):
                     # recurse on the right node with one context
                     args = (m10, f10, f11, rind, new_weight)
                     q.put((-np.max(np.abs(f11 - f10)) * new_weight, np.random.randn(), args))
-
-                    print("\n")
 
         if pbar is not None:
             pbar.close()
